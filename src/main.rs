@@ -1,8 +1,13 @@
 use actix_web::{
-    App, HttpResponse, HttpServer, Responder, delete, get, post,
-    web::{self, Json},
+    App, HttpResponse, HttpServer, Responder, get,
+    web::{self},
 };
-use serde::{Deserialize, Serialize};
+
+use crate::routes::{create_order, delete_order, get_depth};
+
+pub mod inputs;
+pub mod output;
+pub mod routes;
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -25,52 +30,4 @@ async fn main() -> std::io::Result<()> {
     .bind(("127.0.0.1", 8080))?
     .run()
     .await
-}
-
-// For taking inputs
-#[derive(Serialize, Deserialize, Debug)]
-struct CreateOrderInput {
-    price: u32,
-    qty: u32,
-    user_id: u32,
-    side: Side,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-enum Side {
-    Buy,
-    Sell,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct createOrderResponse {
-    order_id: String,
-}
-
-#[post("/order")]
-async fn create_order(body: Json<CreateOrderInput>) -> impl Responder {
-    println!("Create order: {:?}", body);
-
-    // get the data
-    let price = body.0.price;
-    let qty = body.0.qty;
-    let user_id = body.0.user_id;
-    let side = &body.0.side;
-
-    // do whatever the fuck you want i don't care
-
-    // maintain orderbook logic
-    HttpResponse::Ok().json(createOrderResponse {
-        order_id: String::from("hello"),
-    })
-}
-
-#[delete("/order")]
-async fn delete_order() -> impl Responder {
-    "delete order"
-}
-
-#[get("/depth")]
-async fn get_depth() -> impl Responder {
-    "get depth"
 }
