@@ -1,4 +1,8 @@
-use actix_web::{App, HttpResponse, HttpServer, Responder, delete, get, post, web};
+use actix_web::{
+    App, HttpResponse, HttpServer, Responder, delete, get, post,
+    web::{self, Json},
+};
+use serde::{Deserialize, Serialize};
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -23,8 +27,24 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
+// For taking inputs
+#[derive(Serialize, Deserialize, Debug)]
+struct CreateOrderInput {
+    price: u32,
+    qty: u32,
+    user_id: u32,
+    side: Side,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+enum Side {
+    Buy,
+    Sell,
+}
+
 #[post("/order")]
-async fn create_order() -> impl Responder {
+async fn create_order(body: Json<CreateOrderInput>) -> impl Responder {
+    println!("Create order: {:?}", body);
     "create order"
 }
 
