@@ -13,7 +13,7 @@ pub struct DeleteOrderResponse {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Depth {
-    pub last_update_id: String,
     pub bids: Vec<[u32; 2]>,
     pub asks: Vec<[u32; 2]>,
+    pub lastUpdateId: String,
 }

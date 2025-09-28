@@ -39,7 +39,7 @@ async fn get_depth() -> impl Responder {
     HttpResponse::Ok().json(Depth {
         asks: vec![],
         bids: vec![],
-        last_update_id: String::from("depth"),
+        lastUpdateId: String::from("depth"),
     })
 }
 

@@ -9,7 +9,7 @@ pub struct CreateOrderInput {
     pub side: Side,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Side {
     Buy,
     Sell,

@@ -1,31 +1,30 @@
+use std::sync::{Arc, Mutex};
+
 use actix_web::{
     App, HttpResponse, HttpServer, Responder, get,
     web::{self},
 };
 
-use crate::routes::{create_order, delete_order, get_depth};
+use crate::{
+    orderbook::Orderbook,
+    routes::{create_order, delete_order, get_depth},
+};
 
 pub mod inputs;
+pub mod orderbook;
 pub mod output;
 pub mod routes;
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello, world!")
-}
-
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
-}
-
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
+async fn main() -> Result<(), std::io::Error> {
+    let orderbook = Arc::new(Mutex::new(Orderbook::new())); // this is how we specify a singleton it could be anything a db instance in our case its a in memory instance 
+
+    HttpServer::new(move || {
         App::new()
+            .app_data(orderbook.clone())
             .service(create_order)
             .service(delete_order)
             .service(get_depth)
-            .route("/hey", web::get().to(manual_hello))
     })
     .bind(("127.0.0.1", 8080))?
     .run()
