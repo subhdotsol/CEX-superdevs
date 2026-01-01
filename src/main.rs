@@ -1,9 +1,6 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
-use actix_web::{
-    App, HttpResponse, HttpServer, Responder, get,
-    web::{self},
-};
+use actix_web::{App, HttpServer, web};
 
 use crate::{
     orderbook::Orderbook,
@@ -17,7 +14,7 @@ pub mod routes;
 
 #[actix_web::main]
 async fn main() -> Result<(), std::io::Error> {
-    let orderbook = Arc::new(Mutex::new(Orderbook::new())); // this is how we specify a singleton it could be anything a db instance in our case its a in memory instance 
+    let orderbook = web::Data::new(Mutex::new(Orderbook::new()));
 
     HttpServer::new(move || {
         App::new()

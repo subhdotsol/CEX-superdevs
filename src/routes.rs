@@ -1,52 +1,61 @@
-use std::vec;
+use std::sync::Mutex;
 
-use actix_web::{HttpResponse, Responder, delete, get, post, web::Json};
+use actix_web::{HttpResponse, Responder, delete, get, post, web};
 
 use crate::{
     inputs::{CreateOrderInput, DeleteOrder},
-    output::{CreateOrderResponse, DeleteOrderResponse, Depth},
+    orderbook::Orderbook,
+    output::{CreateOrderResponse, DeleteOrderResponse},
 };
 
+// Type alias for cleaner code
+type OrderbookData = web::Data<Mutex<Orderbook>>;
+
 #[post("/order")]
-async fn create_order(Json(body): Json<CreateOrderInput>) -> impl Responder {
+pub async fn create_order(
+    orderbook: OrderbookData,
+    web::Json(body): web::Json<CreateOrderInput>,
+) -> impl Responder {
     println!("Create order: {:?}", body);
 
-    // get the data
-    let price = body.price;
-    let qty = body.qty;
-    let user_id = body.user_id;
-    let side = &body.side;
+    // Lock the orderbook and create the order
+    let mut book = orderbook.lock().unwrap();
+    let order_id = book.create_order(body.price, body.qty, body.user_id, body.side);
 
-    // do whatever the fuck you want i don't care
-
-    // maintain orderbook logic
     HttpResponse::Ok().json(CreateOrderResponse {
-        order_id: String::from("hello"),
+        order_id: order_id.to_string(),
     })
 }
 
 #[delete("/order")]
-async fn delete_order(Json(body): Json<DeleteOrder>) -> impl Responder {
-    let order_id = body.order_id;
-    HttpResponse::Ok().json(DeleteOrderResponse {
-        filled_qty: 0,
-        average_price: 100,
-    })
+pub async fn delete_order(
+    orderbook: OrderbookData,
+    web::Json(body): web::Json<DeleteOrder>,
+) -> impl Responder {
+    // Parse order_id from string to u32
+    let order_id: u32 = match body.order_id.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": "Invalid order_id format"
+            }))
+        }
+    };
+
+    let mut book = orderbook.lock().unwrap();
+    match book.delete_order(order_id) {
+        Some(order) => HttpResponse::Ok().json(DeleteOrderResponse {
+            filled_qty: 0, // No matching yet, so nothing filled
+            average_price: 0,
+        }),
+        None => HttpResponse::NotFound().json(serde_json::json!({
+            "error": "Order not found"
+        })),
+    }
 }
 
 #[get("/depth")]
-async fn get_depth() -> impl Responder {
-    HttpResponse::Ok().json(Depth {
-        asks: vec![],
-        bids: vec![],
-        lastUpdateId: String::from("depth"),
-    })
+pub async fn get_depth(orderbook: OrderbookData) -> impl Responder {
+    let book = orderbook.lock().unwrap();
+    HttpResponse::Ok().json(book.get_depth())
 }
-
-// destructuring logic
-
-// body: Json<CreateOrderInput> NOTE : if you have the this the way of getting the data from body is
-// let user_id : body.0.user_id   --> Due to a un named struct
-
-// Json(body): Json<CreateOrderInput> NOTE : if you have done this you don't have to do the ) logic
-// let user_id : body.user_id

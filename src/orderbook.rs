@@ -73,7 +73,7 @@ impl Orderbook {
         let mut asks: Vec<[u32; 2]> = Vec::new();
 
         for (price, orders) in &self.bids {
-            let total_qty: u32 = orders.iter().map(|o| o.qty).sum(); // loop through, grab this field, add them all up.
+            let total_qty: u32 = orders.iter().map(|o| o.qty).sum();
             bids.push([*price, total_qty]);
         }
 
