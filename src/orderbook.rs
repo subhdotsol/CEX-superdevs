@@ -69,6 +69,27 @@ impl Orderbook {
 
     // convert into a more binance like struct
     pub fn get_depth(&self) -> Depth {
-        self
+        let mut bids: Vec<[u32; 2]> = Vec::new();
+        let mut asks: Vec<[u32; 2]> = Vec::new();
+
+        for (price, orders) in &self.bids {
+            let total_qty: u32 = orders.iter().map(|o| o.qty).sum(); // loop through, grab this field, add them all up.
+            bids.push([*price, total_qty]);
+        }
+
+        for (price, orders) in &self.asks {
+            let total_qty: u32 = orders.iter().map(|o| o.qty).sum();
+            asks.push([*price, total_qty]);
+        }
+
+        // Sort: bids descending (highest price first), asks ascending (lowest price first)
+        bids.sort_by(|a, b| b[0].cmp(&a[0]));
+        asks.sort_by(|a, b| a[0].cmp(&b[0]));
+
+        Depth {
+            bids,
+            asks,
+            lastUpdateId: self.order_id_index.to_string(),
+        }
     }
 }
