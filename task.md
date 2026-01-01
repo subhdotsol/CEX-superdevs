@@ -10,41 +10,39 @@ You have a basic Actix-web server with:
 
 ## Phase 1: Connect Routes to Orderbook (Core Functionality)
 
-### [ ] 1.1 Fix State Injection in Routes
+### [x] 1.1 Fix State Injection in Routes ✅
 **Problem**: Routes don't have access to the orderbook singleton  
 **What to learn**: Actix-web's `web::Data` extractor pattern  
-**Hint**: Look at how you're passing `orderbook.clone()` in `main.rs` vs how routes receive it
+**Done**: Using `web::Data<Mutex<Orderbook>>` extractor in routes
 
-### [ ] 1.2 Implement `create_order` Route
+### [x] 1.2 Implement `create_order` Route ✅
 **Problem**: Route prints the order but doesn't add it to the orderbook  
-**What to do**: Extract orderbook from app state, lock mutex, call `orderbook.create_order()`  
-**Return**: Actual order_id (not hardcoded "hello")
+**Done**: Extracts orderbook, locks mutex, calls `orderbook.create_order()`  
+**Returns**: Actual order_id
 
-### [ ] 1.3 Implement `get_depth` Route  
+### [x] 1.3 Implement `get_depth` Route ✅
 **Problem**: `get_depth()` in orderbook returns `self` but route expects `Depth` struct  
-**What to do**: Transform HashMap data into `Vec<[u32; 2]>` format (price, total_qty)  
-**Binance format**: `[[price, qty], [price, qty], ...]` sorted by price
+**Done**: Transforms HashMap data into `Vec<[u32; 2]>` format, sorted by price
 
-### [ ] 1.4 Implement `delete_order` Route
+### [x] 1.4 Implement `delete_order` Route ✅
 **Problem**: Currently returns hardcoded values  
-**What to do**: Find and remove order from bids/asks by order_id  
-**Challenge**: order_id is String in input but u32 in orderbook - pick one
+**Done**: Parses order_id, calls `orderbook.delete_order()`, returns proper response
 
 ---
 
 ## Phase 2: Fix Data Model Issues
 
-### [ ] 2.1 Order ID Type Consistency
+### [x] 2.1 Order ID Type Consistency ✅
 **Problem**: `DeleteOrder.order_id` is `String`, but `UserOrder.order_id` is `u32`  
-**Decision**: Pick one and be consistent throughout
+**Done**: Routes parse String→u32, internal uses u32
 
-### [ ] 2.2 Add Order Lookup Index
+### [x] 2.2 Add Order Lookup Index ✅
 **Problem**: Finding an order to delete requires scanning all prices in both bids and asks  
-**What to learn**: Secondary indexes - `HashMap<order_id, (price, side)>`
+**Done**: Added `order_lookup: HashMap<u32, (u32, Side)>` for O(1) lookup
 
-### [ ] 2.3 Return Order ID from Create
+### [x] 2.3 Return Order ID from Create ✅
 **Problem**: `create_order()` doesn't return the generated order_id  
-**What to do**: Modify function signature to return `u32`
+**Done**: Function now returns `u32`
 
 ---
 

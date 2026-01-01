@@ -1,5 +1,6 @@
-use crate::{inputs::Side, output::Depth};
-use ::std::collections::HashMap;
+use crate::{inputs::Side, output::{Depth, Fill, FillResponse}};
+use std::collections::HashMap;
+use std::cmp::min;
 
 pub struct Orderbook {
     pub bids: HashMap<u32, Vec<UserOrder>>,
@@ -27,29 +28,132 @@ impl Orderbook {
 }
 
 impl Orderbook {
-    pub fn create_order(&mut self, price: u32, quantity: u32, user_id: u32, side: Side) -> u32 {
-        let order_id = self.order_id_index;
-        self.order_id_index += 1;
-        
-        let order = UserOrder {
-            user_id,
-            qty: quantity,
-            order_id,
-        };
-
-        // Register in index for O(1) lookup later
-        self.order_lookup.insert(order_id, (price, side.clone()));
+    pub fn create_order(&mut self, price: u32, quantity: u32, user_id: u32, side: Side) -> FillResponse {
+        let mut remaining_qty = quantity;
+        let mut fills: Vec<Fill> = vec![];
+        let mut filled_qty: u32 = 0;
 
         match side {
             Side::Buy => {
-                self.bids.entry(price).or_insert_with(Vec::new).push(order);
+                // Get all ask prices that are matchable (ask_price <= buy_price)
+                let mut ask_prices: Vec<u32> = self.asks
+                    .keys()
+                    .filter(|&&ask_price| ask_price <= price)
+                    .cloned()
+                    .collect();
+                ask_prices.sort(); // ascending - best (lowest) price first
+
+                for ask_price in ask_prices {
+                    if remaining_qty == 0 {
+                        break;
+                    }
+
+                    if let Some(orders) = self.asks.get_mut(&ask_price) {
+                        while remaining_qty > 0 && !orders.is_empty() {
+                            let maker_order = &mut orders[0];
+                            let fill_qty = min(remaining_qty, maker_order.qty);
+
+                            // Record the fill
+                            fills.push(Fill {
+                                price: ask_price,
+                                qty: fill_qty,
+                                maker_order_id: maker_order.order_id,
+                            });
+
+                            filled_qty += fill_qty;
+                            remaining_qty -= fill_qty;
+                            maker_order.qty -= fill_qty;
+
+                            // Remove maker order if fully filled
+                            if maker_order.qty == 0 {
+                                let order_id = orders.remove(0).order_id;
+                                self.order_lookup.remove(&order_id);
+                            }
+                        }
+                    }
+
+                    // Remove price level if empty
+                    if self.asks.get(&ask_price).map_or(false, |o| o.is_empty()) {
+                        self.asks.remove(&ask_price);
+                    }
+                }
             }
             Side::Sell => {
-                self.asks.entry(price).or_insert_with(Vec::new).push(order);
+                // Get all bid prices that are matchable (bid_price >= sell_price)
+                let mut bid_prices: Vec<u32> = self.bids
+                    .keys()
+                    .filter(|&&bid_price| bid_price >= price)
+                    .cloned()
+                    .collect();
+                bid_prices.sort_by(|a, b| b.cmp(a)); // descending - best (highest) price first
+
+                for bid_price in bid_prices {
+                    if remaining_qty == 0 {
+                        break;
+                    }
+
+                    if let Some(orders) = self.bids.get_mut(&bid_price) {
+                        while remaining_qty > 0 && !orders.is_empty() {
+                            let maker_order = &mut orders[0];
+                            let fill_qty = min(remaining_qty, maker_order.qty);
+
+                            fills.push(Fill {
+                                price: bid_price,
+                                qty: fill_qty,
+                                maker_order_id: maker_order.order_id,
+                            });
+
+                            filled_qty += fill_qty;
+                            remaining_qty -= fill_qty;
+                            maker_order.qty -= fill_qty;
+
+                            if maker_order.qty == 0 {
+                                let order_id = orders.remove(0).order_id;
+                                self.order_lookup.remove(&order_id);
+                            }
+                        }
+                    }
+
+                    if self.bids.get(&bid_price).map_or(false, |o| o.is_empty()) {
+                        self.bids.remove(&bid_price);
+                    }
+                }
             }
         }
 
-        order_id
+        // Add remaining qty to book if not fully filled
+        let order_id = if remaining_qty > 0 {
+            let order_id = self.order_id_index;
+            self.order_id_index += 1;
+
+            let order = UserOrder {
+                user_id,
+                qty: remaining_qty,
+                order_id,
+            };
+
+            self.order_lookup.insert(order_id, (price, side.clone()));
+
+            match side {
+                Side::Buy => {
+                    self.bids.entry(price).or_insert_with(Vec::new).push(order);
+                }
+                Side::Sell => {
+                    self.asks.entry(price).or_insert_with(Vec::new).push(order);
+                }
+            }
+
+            Some(order_id)
+        } else {
+            None // Fully filled, not added to book
+        };
+
+        FillResponse {
+            order_id,
+            fills,
+            filled_qty,
+            remaining_qty,
+        }
     }
 
     pub fn delete_order(&mut self, order_id: u32) -> Option<UserOrder> {

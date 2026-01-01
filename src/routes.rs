@@ -5,7 +5,7 @@ use actix_web::{HttpResponse, Responder, delete, get, post, web};
 use crate::{
     inputs::{CreateOrderInput, DeleteOrder},
     orderbook::Orderbook,
-    output::{CreateOrderResponse, DeleteOrderResponse},
+    output::DeleteOrderResponse,
 };
 
 // Type alias for cleaner code
@@ -18,13 +18,11 @@ pub async fn create_order(
 ) -> impl Responder {
     println!("Create order: {:?}", body);
 
-    // Lock the orderbook and create the order
+    // Lock the orderbook and create the order (with matching!)
     let mut book = orderbook.lock().unwrap();
-    let order_id = book.create_order(body.price, body.qty, body.user_id, body.side);
+    let result = book.create_order(body.price, body.qty, body.user_id, body.side);
 
-    HttpResponse::Ok().json(CreateOrderResponse {
-        order_id: order_id.to_string(),
-    })
+    HttpResponse::Ok().json(result)
 }
 
 #[delete("/order")]
