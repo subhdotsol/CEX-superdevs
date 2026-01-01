@@ -186,3 +186,143 @@ It does NOT handle:
 - Authentication
 
 Prices and quantities are abstract numbers for learning purposes.
+
+---
+
+## 9. What is a "Fill"?
+
+**Question**: What does "fill" mean in the FillResponse?
+
+**Answer**: A **fill** is a **trade execution** — when your order gets matched with another order.
+
+```json
+{
+  "fills": [{"price": 100, "qty": 10, "maker_order_id": 0}]
+}
+```
+
+This means: You bought 10 units at $100 from order #0.
+
+| Term | Meaning |
+|------|---------|
+| **Fill** | One trade execution |
+| **Partial Fill** | Order matched but not fully done |
+| **Fully Filled** | All quantity traded, not in book |
+| **Maker** | The resting order (already in book) |
+| **Taker** | The incoming order (your new order) |
+
+---
+
+## 10. How Route Macros Work
+
+**Question**: How do you know the endpoint is `/order`?
+
+**Answer**: From the route macros in `routes.rs`:
+
+```rust
+#[post("/order")]         // ← Defines POST /order
+pub async fn create_order(...)
+
+#[delete("/order")]       // ← Defines DELETE /order
+pub async fn delete_order(...)
+
+#[get("/depth")]          // ← Defines GET /depth
+pub async fn get_depth(...)
+```
+
+The string inside the macro (`"/order"`) is the path. When you call `.service(create_order)` in main.rs, Actix registers that path.
+
+---
+
+## 11. Matching Engine Algorithm
+
+**Question**: How does order matching work?
+
+**Answer**:
+
+```
+BUY ORDER matches with ASKS (sells):
+  → Buy at $100 can match sells at $100 or LOWER
+  → Always match BEST price first (lowest ask)
+
+SELL ORDER matches with BIDS (buys):
+  → Sell at $100 can match buys at $100 or HIGHER
+  → Always match BEST price first (highest bid)
+```
+
+**Price-Time Priority**:
+1. Best price first (lowest ask / highest bid)
+2. At same price, oldest order first (FIFO)
+
+**The code pattern**:
+```rust
+// Get matchable prices, sorted by best first
+let mut ask_prices: Vec<u32> = self.asks
+    .keys()
+    .filter(|&&ask_price| ask_price <= price)  // matchable
+    .cloned()
+    .collect();
+ask_prices.sort();  // ascending for asks
+
+// Match each price level
+for ask_price in ask_prices {
+    // Match orders at this price (oldest first)
+    while remaining_qty > 0 && !orders.is_empty() {
+        let fill_qty = min(remaining_qty, maker_order.qty);
+        // ... record fill, update quantities
+    }
+}
+```
+
+---
+
+## 12. The `min()` Function
+
+**Question**: What does `min(remaining_qty, maker_order.qty)` do?
+
+**Answer**: Returns the smaller of two values:
+
+```rust
+use std::cmp::min;
+
+min(10, 20)  // → 10
+min(30, 5)   // → 5
+```
+
+In matching, we can only fill the **smaller** of:
+- How much the buyer wants (`remaining_qty`)
+- How much the seller has (`maker_order.qty`)
+
+```
+Buyer wants: 25
+Seller has:  10
+
+min(25, 10) = 10  ← We trade 10
+
+Buyer remaining: 25 - 10 = 15
+Seller remaining: 10 - 10 = 0 (fully filled, remove from book)
+```
+
+---
+
+## 13. Why `order_id: Option<u32>` in Response?
+
+**Question**: Why can order_id be `null`?
+
+**Answer**: If the order is **fully filled**, it's not added to the book:
+
+```rust
+let order_id = if remaining_qty > 0 {
+    // Partially filled or no match - add to book
+    Some(new_order_id)
+} else {
+    // Fully filled - not in book
+    None
+};
+```
+
+| Scenario | `order_id` | Meaning |
+|----------|------------|---------|
+| Order fully matched | `null` | Not in book |
+| Order partially matched | `5` | In book with remaining qty |
+| No matches | `5` | In book with full qty |

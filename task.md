@@ -48,19 +48,19 @@ You have a basic Actix-web server with:
 
 ## Phase 3: Order Matching Engine (The Real Challenge)
 
-### [ ] 3.1 Basic Matching Logic
+### [x] 3.1 Basic Matching Logic ✅
 **What happens now**: Orders just sit in the book  
-**What should happen**: Buy order at 100 should match with sell orders ≤ 100  
-**Concepts**: Price-time priority, partial fills
+**Done**: Buy orders match with asks ≤ price, sell orders match with bids ≥ price  
+**Implemented**: Price-time priority, partial fills
 
 ### [ ] 3.2 Fill or Kill / Immediate or Cancel
 **Different order types**:
-- `Limit`: Sit in book until matched
+- `Limit`: Sit in book until matched (current behavior)
 - `IOC`: Match what you can, cancel the rest  
 - `FOK`: Match entirely or cancel entirely
 
-### [ ] 3.3 Track Filled Quantity
-**For `delete_order`**: Return how much was filled before cancellation
+### [x] 3.3 Track Filled Quantity ✅
+**Done**: FillResponse includes `fills`, `filled_qty`, `remaining_qty`
 
 ---
 
