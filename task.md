@@ -66,25 +66,28 @@ You have a basic Actix-web server with:
 
 ## Phase 4: Production Readiness
 
-### [ ] 4.1 Proper Error Handling
-**Current state**: Everything returns `HttpResponse::Ok()`  
-**What to learn**: Custom error types, `Result` in handlers, proper HTTP status codes
+### [x] 4.1 Proper Error Handling ✅
+**Done**: 
+- Helper functions `bad_request()`, `not_found()`, `error_response()`
+- Proper HTTP status codes (201 Created, 400 Bad Request, 404 Not Found)
+- JSON error responses with `{"error": "message"}`
 
-### [ ] 4.2 Input Validation
+### [x] 4.2 Input Validation ✅
+**Done**: `validate_create_order()` function checks:
 - Price must be > 0
 - Quantity must be > 0  
-- User ID validation
+- User ID must be > 0
 
-### [ ] 4.3 Concurrency Considerations
-**Current**: `Arc<Mutex<Orderbook>>` blocks entire orderbook on any operation  
-**Better options**:
-- `RwLock` for read-heavy workloads (get_depth)
-- Lock-free data structures
-- Sharding by price range
+### [x] 4.3 Concurrency Considerations ✅
+**Done**: Switched from `Mutex` to `RwLock`
+- `get_depth` uses read lock (multiple readers can access)
+- `create_order` / `delete_order` use write lock
+- Added request logging middleware
 
 ### [ ] 4.4 WebSocket Price Feed
 **Why**: REST polling for depth is inefficient  
 **What to learn**: `actix-web-actors` for WebSocket, broadcast channels
+**Status**: Skipped for now (requires significant additional setup)
 
 ---
 
