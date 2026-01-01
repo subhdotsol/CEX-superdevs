@@ -1,0 +1,17 @@
+{
+  "name": "superdevs",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "dev:frontend": "turbo run dev --filter=frontend",
+    "dev:backend": "cd apps/backend && cargo run",
+    "build:frontend": "turbo run build --filter=frontend",
+    "build:backend": "cd apps/backend && cargo build --release"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "packageManager": "bun@1.0.0"
+}

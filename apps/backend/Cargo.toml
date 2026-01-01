@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 actix-web = "4.11.0"
+actix-cors = "0.7"
 expand = "0.3.0"
 serde = "1.0.228"
 serde_json = "1.0.145"

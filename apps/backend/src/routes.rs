@@ -110,6 +110,6 @@ pub async fn get_depth(orderbook: OrderbookData) -> impl Responder {
 pub async fn health_check() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
         "status": "ok",
-        "service": "superdevs-orderbook"
+        "service": "orderbook"
     }))
 }
