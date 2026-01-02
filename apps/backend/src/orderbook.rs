@@ -193,7 +193,7 @@ impl Orderbook {
         Depth {
             bids,
             asks,
-            lastUpdateId: self.order_id_index.to_string(),
+            last_update_id: self.order_id_index.to_string(),
         }
     }
 }

@@ -1,40 +1,42 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { api, Depth, FillResponse } from '@/lib/api';
+import { useState, useEffect } from 'react';
+import { api, FillResponse } from '@/lib/api';
+import { useOrderbookWebSocket } from '@/lib/useWebSocket';
 import { OrderBook } from '@/components/OrderBook';
 import { OrderForm } from '@/components/OrderForm';
 import { RecentTrades } from '@/components/RecentTrades';
 
 export default function Home() {
-  const [depth, setDepth] = useState<Depth | null>(null);
+  // Use WebSocket for real-time depth updates
+  const { depth, isConnected } = useOrderbookWebSocket();
   const [isLoading, setIsLoading] = useState(true);
-  const [isConnected, setIsConnected] = useState(false);
   const [trades, setTrades] = useState<FillResponse[]>([]);
 
-  const fetchDepth = useCallback(async () => {
-    try {
-      const data = await api.getDepth();
-      setDepth(data);
-      setIsConnected(true);
-    } catch {
-      setIsConnected(false);
-    } finally {
-      setIsLoading(false);
-    }
+  // Initial fetch to check if backend is up and get initial depth
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        await api.getDepth();
+      } catch {
+        // WebSocket will handle connection state
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    checkBackend();
   }, []);
 
+  // Stop showing loading once we get WebSocket data
   useEffect(() => {
-    fetchDepth();
-
-    // Poll every 2 seconds
-    const interval = setInterval(fetchDepth, 2000);
-    return () => clearInterval(interval);
-  }, [fetchDepth]);
+    if (depth) {
+      setIsLoading(false);
+    }
+  }, [depth]);
 
   const handleOrderCreated = (result: FillResponse) => {
     setTrades(prev => [result, ...prev].slice(0, 20));
-    fetchDepth(); // Refresh orderbook
+    // No need to fetch - WebSocket will push the update!
   };
 
   return (

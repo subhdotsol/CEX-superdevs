@@ -1,32 +1,25 @@
-use std::sync::RwLock;
-
 use actix_web::{HttpResponse, Responder, delete, get, post, web};
 
 use crate::{
     inputs::{CreateOrderInput, DeleteOrder},
-    orderbook::Orderbook,
     output::DeleteOrderResponse,
+    AppState,
 };
 
-// Type alias - now using RwLock for better read performance
-type OrderbookData = web::Data<RwLock<Orderbook>>;
-
 // ============================================================
-// ERROR RESPONSE HELPER
+// ERROR RESPONSE HELPERS
 // ============================================================
 
-fn error_response(status: actix_web::http::StatusCode, message: &str) -> HttpResponse {
-    HttpResponse::build(status).json(serde_json::json!({
+fn bad_request(message: &str) -> HttpResponse {
+    HttpResponse::BadRequest().json(serde_json::json!({
         "error": message
     }))
 }
 
-fn bad_request(message: &str) -> HttpResponse {
-    error_response(actix_web::http::StatusCode::BAD_REQUEST, message)
-}
-
 fn not_found(message: &str) -> HttpResponse {
-    error_response(actix_web::http::StatusCode::NOT_FOUND, message)
+    HttpResponse::NotFound().json(serde_json::json!({
+        "error": message
+    }))
 }
 
 // ============================================================
@@ -52,7 +45,7 @@ fn validate_create_order(input: &CreateOrderInput) -> Result<(), String> {
 
 #[post("/order")]
 pub async fn create_order(
-    orderbook: OrderbookData,
+    state: web::Data<AppState>,
     web::Json(body): web::Json<CreateOrderInput>,
 ) -> impl Responder {
     println!("Create order: {:?}", body);
@@ -63,15 +56,24 @@ pub async fn create_order(
     }
 
     // Lock the orderbook (write lock) and create the order
-    let mut book = orderbook.write().unwrap();
-    let result = book.create_order(body.price, body.qty, body.user_id, body.side);
+    let result = {
+        let mut book = state.orderbook.write().unwrap();
+        let result = book.create_order(body.price, body.qty, body.user_id, body.side);
+        
+        // Get current depth for broadcast
+        let depth = book.get_depth();
+        (result, depth)
+    };
 
-    HttpResponse::Created().json(result)  // 201 Created for new orders
+    // Broadcast depth update to all WebSocket clients
+    state.broadcaster.broadcast(result.1);
+
+    HttpResponse::Created().json(result.0)
 }
 
 #[delete("/order")]
 pub async fn delete_order(
-    orderbook: OrderbookData,
+    state: web::Data<AppState>,
     web::Json(body): web::Json<DeleteOrder>,
 ) -> impl Responder {
     // Validate and parse order_id
@@ -85,20 +87,30 @@ pub async fn delete_order(
     };
 
     // Write lock for deletion
-    let mut book = orderbook.write().unwrap();
-    match book.delete_order(order_id) {
-        Some(_order) => HttpResponse::Ok().json(DeleteOrderResponse {
+    let result = {
+        let mut book = state.orderbook.write().unwrap();
+        let deleted = book.delete_order(order_id);
+        let depth = book.get_depth();
+        (deleted, depth)
+    };
+
+    if result.0.is_some() {
+        // Broadcast depth update
+        state.broadcaster.broadcast(result.1);
+        
+        HttpResponse::Ok().json(DeleteOrderResponse {
             filled_qty: 0,
             average_price: 0,
-        }),
-        None => not_found("Order not found"),
+        })
+    } else {
+        not_found("Order not found")
     }
 }
 
 #[get("/depth")]
-pub async fn get_depth(orderbook: OrderbookData) -> impl Responder {
+pub async fn get_depth(state: web::Data<AppState>) -> impl Responder {
     // Read lock only - multiple readers can access simultaneously
-    let book = orderbook.read().unwrap();
+    let book = state.orderbook.read().unwrap();
     HttpResponse::Ok().json(book.get_depth())
 }
 
@@ -110,6 +122,7 @@ pub async fn get_depth(orderbook: OrderbookData) -> impl Responder {
 pub async fn health_check() -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
         "status": "ok",
-        "service": "orderbook"
+        "service": "superdevs-orderbook",
+        "websocket": "ws://localhost:8080/ws"
     }))
 }

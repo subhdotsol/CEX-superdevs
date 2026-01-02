@@ -11,11 +11,12 @@ pub struct DeleteOrderResponse {
     pub average_price: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Depth {
     pub bids: Vec<[u32; 2]>,
     pub asks: Vec<[u32; 2]>,
-    pub lastUpdateId: String,
+    #[serde(rename = "lastUpdateId")]
+    pub last_update_id: String,
 }
 
 
